@@ -82,6 +82,7 @@ body { font-family:-apple-system,'Hiragino Sans',sans-serif; background:#eff3ef;
 .modal-overlay.open { display:flex; }
 .modal { background:var(--white); border-radius:18px 18px 0 0; padding:20px 18px 36px; width:100%; max-width:390px; animation:slideUp 0.22s ease; max-height:90vh; overflow-y:auto; }
 @keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+.modal-overlay.open .modal { scroll-behavior:auto; }
 .modal-handle { width:36px; height:4px; background:var(--border); border-radius:2px; margin:0 auto 16px; }
 .modal-title { font-size:17px; font-weight:700; margin-bottom:16px; color:var(--text); }
 .form-group { margin-bottom:14px; position:relative; }
@@ -591,7 +592,18 @@ function openAddModal() {
   document.getElementById('img-file-input').value='';
   renderModalCats();
   document.getElementById('modal-add').classList.add('open');
+  // ② モーダルを一番上にスクロール
+  document.querySelector('#modal-add .modal').scrollTop = 0;
+  // ① 自動でキーボードを出す
+  setTimeout(() => {
+    document.getElementById('input-name').focus();
+  }, 300);
 }
+
+// モーダルが開いたら上にスクロール
+document.getElementById('modal-add').addEventListener('click', function(e) {
+  if (e.target === this) closeModal('modal-add');
+});
 
 function renderModalCats() {
   const sel = document.getElementById('modal-cat-selector');
