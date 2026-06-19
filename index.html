@@ -1,0 +1,1503 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
+<title>買いもの帳</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+:root {
+  --green:#4a9e6f; --green-light:#e8f5ee; --green-mid:#c5e8d4;
+  --orange:#e07b39; --orange-light:#fef0e6;
+  --red:#d95f5f; --red-light:#fdeaea;
+  --border:#e8e8e8; --text:#2c2c2c; --text-sub:#999;
+  --gray-light:#f5f5f5; --white:#fff;
+  --radius:10px; --shadow:0 1px 6px rgba(0,0,0,0.07);
+}
+html { touch-action:manipulation; }
+body { font-family:-apple-system,'Hiragino Sans',sans-serif; background:#eff3ef; display:flex; justify-content:center; touch-action:manipulation; -webkit-text-size-adjust:100%; }
+.phone { width:100%; max-width:390px; min-height:100vh; background:#eff3ef; }
+.screen { display:none; flex-direction:column; min-height:100vh; }
+.screen.active { display:flex; }
+
+/* HEADER */
+.header { background:var(--white); padding:14px 16px 10px; border-bottom:1px solid var(--border); position:sticky; top:0; z-index:10; }
+.header-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+.header-title { font-size:18px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:5px; }
+.header-actions { display:flex; gap:6px; }
+.icon-btn { width:32px; height:32px; border-radius:50%; border:none; background:var(--gray-light); font-size:15px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+.sync-indicator { font-size:10px; color:var(--text-sub); display:flex; align-items:center; gap:3px; }
+.sync-dot { width:6px; height:6px; border-radius:50%; background:#ccc; }
+.sync-dot.syncing { background:var(--orange); animation:pulse 1s infinite; }
+.sync-dot.synced  { background:var(--green); }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+/* TABS */
+.tabs { display:flex; gap:3px; background:var(--gray-light); border-radius:8px; padding:3px; }
+.tab { flex:1; padding:6px 0; font-size:12px; font-weight:600; border:none; background:transparent; border-radius:6px; cursor:pointer; color:var(--text-sub); }
+.tab.active { background:var(--white); color:var(--green); box-shadow:0 1px 3px rgba(0,0,0,0.1); }
+
+/* SCROLL */
+.scroll-area { flex:1; overflow-y:auto; padding:12px; padding-bottom:80px; }
+
+/* CATEGORY SECTION */
+.cat-section { margin-bottom:14px; }
+.cat-header { display:flex; align-items:center; gap:6px; margin-bottom:6px; padding:0 2px; }
+.cat-badge { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:20px; font-size:12px; font-weight:700; }
+.cat-count { font-size:11px; color:var(--text-sub); }
+
+/* ITEM ROW */
+.item-row { background:var(--white); border-radius:8px; padding:8px 10px; margin-bottom:5px; display:flex; align-items:center; gap:8px; box-shadow:var(--shadow); position:relative; transition:background 0.2s; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+.item-row:active { background:#f0f0f0; }
+.item-row.checked { background:#f0f0f0; }
+.item-row.checked .item-name { text-decoration:line-through; color:#aaa; }
+.item-row.checked .item-qty,
+.item-row.checked .item-memo-tag,
+.item-row.checked .item-who,
+.item-row.checked .item-thumb { opacity:0.4; }
+.check-circle { width:22px; height:22px; border-radius:50%; border:2px solid var(--border); flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:12px; transition:all 0.2s; background:var(--white); cursor:pointer; }
+.item-row.checked .check-circle { background:var(--green); border-color:var(--green); color:white; }
+.item-thumb { width:36px; height:36px; border-radius:6px; object-fit:cover; flex-shrink:0; cursor:pointer; border:1px solid var(--border); }
+.item-thumb-placeholder { width:36px; height:36px; border-radius:6px; background:var(--gray-light); flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:18px; cursor:pointer; border:1px dashed var(--border); color:#ccc; }
+.item-body { flex:1; min-width:0; }
+.item-top { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.item-name { font-size:14px; font-weight:600; color:var(--text); }
+.item-qty { font-size:11px; color:var(--text-sub); background:var(--gray-light); padding:1px 6px; border-radius:5px; white-space:nowrap; }
+.item-memo-tag { font-size:11px; color:var(--orange); background:var(--orange-light); padding:1px 6px; border-radius:5px; max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.item-who { font-size:10px; color:var(--text-sub); margin-top:2px; }
+.urgent-dot { width:6px; height:6px; background:var(--red); border-radius:50%; flex-shrink:0; margin-left:auto; }
+
+/* CHECKED BAR */
+.checked-bar { display:none; background:var(--white); border-radius:8px; margin-bottom:8px; padding:9px 12px; box-shadow:var(--shadow); align-items:center; gap:10px; }
+.checked-bar.visible { display:flex; }
+.checked-bar-label { flex:1; font-size:13px; color:var(--text-sub); }
+.delete-all-btn { padding:5px 14px; border-radius:20px; background:var(--red); color:white; border:none; font-size:12px; font-weight:700; cursor:pointer; }
+
+/* BOTTOM NAV */
+.bottom-nav { position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:390px; background:var(--white); border-top:1px solid var(--border); display:flex; align-items:center; padding:8px 14px 22px; gap:8px; z-index:20; }
+.add-btn-main { flex:1; padding:12px; background:var(--green); color:white; border:none; border-radius:var(--radius); font-size:14px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px; box-shadow:0 3px 10px rgba(74,158,111,0.35); }
+.nav-btn { width:44px; height:44px; border-radius:var(--radius); border:none; background:var(--gray-light); font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+.nav-btn.active-nav { background:var(--green-light); }
+
+/* MODAL */
+.modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:100; align-items:flex-end; justify-content:center; }
+.modal-overlay.open { display:flex; }
+.modal { background:var(--white); border-radius:18px 18px 0 0; padding:20px 18px 36px; width:100%; max-width:390px; animation:slideUp 0.22s ease; max-height:90vh; overflow-y:auto; }
+@keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+.modal-overlay.open .modal { scroll-behavior:auto; }
+.modal-handle { width:36px; height:4px; background:var(--border); border-radius:2px; margin:0 auto 16px; }
+.modal-title { font-size:17px; font-weight:700; margin-bottom:16px; color:var(--text); }
+.form-group { margin-bottom:14px; position:relative; }
+.form-label { font-size:12px; font-weight:600; color:var(--text-sub); margin-bottom:5px; display:block; }
+.form-input { width:100%; padding:10px 12px; border:2px solid var(--border); border-radius:var(--radius); font-size:15px; color:var(--text); outline:none; transition:border-color 0.15s; font-family:inherit; }
+.form-input:focus { border-color:var(--green); }
+.cat-selector { display:flex; flex-wrap:wrap; gap:6px; }
+.cat-option { padding:6px 12px; border-radius:20px; border:2px solid var(--border); font-size:12px; font-weight:600; cursor:pointer; background:var(--white); color:var(--text); transition:all 0.15s; }
+.cat-option.selected { border-color:var(--green); background:var(--green-light); color:var(--green); }
+.qty-row { display:flex; align-items:center; gap:8px; }
+.qty-btn { width:36px; height:36px; border-radius:50%; border:2px solid var(--border); background:var(--white); font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-weight:700; color:var(--green); }
+.qty-display { flex:1; text-align:center; font-size:16px; font-weight:700; color:var(--text); }
+.qty-unit-input { width:60px; padding:8px; border:2px solid var(--border); border-radius:8px; font-size:14px; text-align:center; outline:none; font-family:inherit; }
+.qty-unit-input:focus { border-color:var(--green); }
+.urgent-toggle { display:flex; align-items:center; gap:10px; padding:10px 12px; border:2px solid var(--border); border-radius:var(--radius); cursor:pointer; transition:all 0.15s; }
+.urgent-toggle.on { border-color:var(--red); background:var(--red-light); }
+.toggle-dot { width:40px; height:24px; background:var(--border); border-radius:12px; position:relative; transition:background 0.2s; flex-shrink:0; }
+.toggle-dot::after { content:''; position:absolute; width:18px; height:18px; background:white; border-radius:50%; top:3px; left:3px; transition:transform 0.2s; box-shadow:0 1px 3px rgba(0,0,0,0.2); }
+.urgent-toggle.on .toggle-dot { background:var(--red); }
+.urgent-toggle.on .toggle-dot::after { transform:translateX(16px); }
+.img-upload-area { border:2px dashed var(--border); border-radius:var(--radius); padding:16px; text-align:center; cursor:pointer; transition:border-color 0.15s; position:relative; overflow:hidden; }
+.img-upload-area:hover { border-color:var(--green); }
+.img-upload-preview { width:100%; max-height:140px; object-fit:cover; border-radius:8px; display:none; }
+.img-upload-placeholder { color:var(--text-sub); font-size:13px; }
+.img-upload-placeholder .big { font-size:30px; display:block; margin-bottom:4px; }
+.submit-btn { width:100%; padding:14px; background:var(--green); color:white; border:none; border-radius:var(--radius); font-size:15px; font-weight:700; cursor:pointer; margin-top:6px; box-shadow:0 3px 10px rgba(74,158,111,0.3); }
+.cancel-btn { width:100%; padding:10px; border:none; background:transparent; color:var(--text-sub); font-size:13px; cursor:pointer; margin-top:6px; }
+
+/* SUGGEST */
+.suggest-list { position:absolute; left:0; right:0; background:var(--white); border:2px solid var(--green); border-top:none; border-radius:0 0 var(--radius) var(--radius); z-index:50; max-height:200px; overflow-y:auto; display:none; box-shadow:0 6px 16px rgba(0,0,0,0.12); }
+.suggest-list.open { display:block; }
+.suggest-item { display:flex; align-items:center; gap:10px; padding:10px 14px; cursor:pointer; border-bottom:1px solid var(--border); font-size:14px; color:var(--text); transition:background 0.1s; }
+.suggest-item:last-child { border-bottom:none; }
+.suggest-item:active, .suggest-item:hover { background:var(--green-light); }
+.suggest-item-emoji { font-size:18px; flex-shrink:0; }
+.suggest-item-info { flex:1; min-width:0; }
+.suggest-item-name { font-weight:600; }
+.suggest-item-name mark { background:transparent; color:var(--green); font-weight:800; }
+.suggest-item-cat { font-size:11px; color:var(--text-sub); margin-top:1px; }
+.suggest-new { display:flex; align-items:center; gap:10px; padding:10px 14px; cursor:pointer; font-size:13px; color:var(--green); font-weight:600; background:var(--green-light); }
+
+/* RECIPE URL */
+.recipe-url-row { display:flex; align-items:center; gap:8px; padding:10px 0 4px; border-top:1px solid var(--border); margin-top:4px; }
+.recipe-url-btn { flex:1; display:flex; align-items:center; gap:6px; padding:7px 12px; border-radius:20px; background:var(--green-light); color:var(--green); font-size:13px; font-weight:600; text-decoration:none; border:1px solid var(--green-mid); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.recipe-url-empty { flex:1; font-size:12px; color:var(--text-sub); }
+.recipe-url-edit-btn { padding:6px 12px; border-radius:20px; border:1px solid var(--border); background:var(--gray-light); color:var(--text-sub); font-size:12px; cursor:pointer; white-space:nowrap; }
+
+/* RECIPE */
+.recipe-group { background:var(--white); border-radius:var(--radius); margin-bottom:10px; box-shadow:var(--shadow); overflow:hidden; }
+.recipe-header { display:flex; align-items:center; padding:12px 14px; cursor:pointer; gap:8px; }
+.recipe-icon { width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
+.recipe-title { flex:1; font-size:14px; font-weight:700; color:var(--text); }
+.recipe-sub { font-size:11px; color:var(--text-sub); }
+.recipe-add-btn { padding:5px 12px; border-radius:20px; border:2px solid var(--green); background:transparent; color:var(--green); font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap; }
+.recipe-add-btn.added { background:var(--green); color:white; }
+.recipe-items { border-top:1px solid var(--border); padding:8px 14px; display:none; }
+.recipe-items.open { display:block; }
+.recipe-ingredient { display:flex; align-items:center; gap:7px; padding:6px 0; border-bottom:1px solid var(--gray-light); font-size:13px; color:var(--text); }
+.recipe-ingredient:last-child { border-bottom:none; }
+
+/* CAT EDIT */
+.cat-edit-list { margin-bottom:14px; }
+.cat-edit-row { display:flex; align-items:center; gap:8px; padding:9px 0; border-bottom:1px solid var(--border); }
+.cat-edit-row:last-child { border-bottom:none; }
+.cat-emoji-input { width:36px; padding:4px; border:1px solid var(--border); border-radius:6px; font-size:16px; text-align:center; outline:none; }
+.cat-name-input { flex:1; padding:6px 8px; border:1px solid var(--border); border-radius:6px; font-size:13px; outline:none; font-family:inherit; }
+.cat-name-input:focus { border-color:var(--green); }
+.cat-del-btn { width:28px; height:28px; border:none; background:var(--red-light); color:var(--red); border-radius:50%; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+.add-cat-btn { width:100%; padding:10px; border:2px dashed var(--border); border-radius:var(--radius); background:transparent; color:var(--text-sub); font-size:13px; font-weight:600; cursor:pointer; margin-bottom:12px; }
+
+.size-btn {
+  flex:1; padding:8px 4px; border-radius:8px;
+  border:2px solid var(--border); background:var(--white);
+  font-size:13px; font-weight:600; cursor:pointer; color:var(--text);
+  transition:all 0.15s;
+}
+.size-btn.selected {
+  border-color:var(--orange); background:var(--orange-light); color:var(--orange);
+}
+
+/* RECIPE INGREDIENT SELECT */
+.ing-select-item {
+  display:flex; align-items:center; gap:10px;
+  padding:10px 0; border-bottom:1px solid var(--border);
+  cursor:pointer;
+}
+.ing-select-item:last-child { border-bottom:none; }
+.ing-check-box {
+  width:22px; height:22px; border-radius:6px;
+  border:2px solid var(--border); flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  font-size:13px; transition:all 0.15s;
+}
+.ing-check-box.on { background:var(--green); border-color:var(--green); color:white; }
+.ing-select-name { flex:1; font-size:14px; font-weight:600; color:var(--text); }
+.ing-select-qty { font-size:12px; color:var(--text-sub); background:var(--gray-light); padding:1px 7px; border-radius:5px; }
+.ing-already { font-size:11px; color:var(--green); background:var(--green-light); padding:1px 7px; border-radius:5px; }
+
+/* MEMBER */
+.member-card { background:var(--white); border-radius:var(--radius); padding:14px; margin-bottom:8px; box-shadow:var(--shadow); display:flex; align-items:center; gap:12px; }
+.member-avatar { width:42px; height:42px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0; }
+.member-name { font-size:15px; font-weight:700; color:var(--text); }
+.member-role { font-size:12px; color:var(--text-sub); margin-top:1px; }
+.member-count { margin-left:auto; font-size:12px; color:var(--text-sub); background:var(--gray-light); padding:3px 9px; border-radius:20px; }
+
+/* NAME SETUP */
+.name-setup { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; padding:40px 24px; background:#eff3ef; }
+.name-setup h1 { font-size:24px; font-weight:700; color:var(--text); margin-bottom:8px; }
+.name-setup p { font-size:14px; color:var(--text-sub); margin-bottom:32px; text-align:center; }
+.name-btns { display:flex; flex-direction:column; gap:10px; width:100%; }
+.name-btn { padding:14px; border-radius:var(--radius); border:2px solid var(--border); background:var(--white); font-size:16px; font-weight:600; cursor:pointer; color:var(--text); display:flex; align-items:center; gap:10px; }
+.name-btn:active { background:var(--green-light); border-color:var(--green); }
+.name-custom { display:flex; gap:8px; margin-top:4px; }
+.name-custom input { flex:1; padding:12px; border:2px solid var(--border); border-radius:var(--radius); font-size:15px; outline:none; font-family:inherit; }
+.name-custom input:focus { border-color:var(--green); }
+
+/* IMG VIEWER */
+.img-viewer-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:200; align-items:center; justify-content:center; }
+.img-viewer-overlay.open { display:flex; }
+.img-viewer-overlay img { max-width:90%; max-height:80vh; border-radius:12px; object-fit:contain; }
+.img-viewer-close { position:absolute; top:20px; right:20px; width:36px; height:36px; background:rgba(255,255,255,0.2); border-radius:50%; border:none; color:white; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+
+/* TOAST */
+.toast { position:fixed; bottom:90px; left:50%; transform:translateX(-50%); background:#2c2c2c; color:white; padding:9px 18px; border-radius:20px; font-size:13px; font-weight:600; z-index:300; opacity:0; transition:opacity 0.3s; white-space:nowrap; pointer-events:none; }
+.toast.show { opacity:1; }
+</style>
+</head>
+<body>
+<div class="phone">
+
+<!-- ===== GROUP SETUP (初回のみ・名前設定の前) ===== -->
+<div id="group-setup-screen" class="name-setup" style="display:none;">
+  <div style="font-size:56px;margin-bottom:16px;">🏠</div>
+  <h1>買いもの帳</h1>
+  <p>ご家族・グループを選んでください</p>
+  <div class="name-btns">
+    <button class="name-btn" onclick="showCreateGroup()">✨ 新しいグループを作る</button>
+    <button class="name-btn" onclick="showJoinGroup()">🔑 招待コードで参加する</button>
+  </div>
+
+  <!-- 新規作成フォーム -->
+  <div id="create-group-form" style="display:none;width:100%;margin-top:16px;">
+    <div class="name-custom">
+      <input type="text" id="group-name-input" placeholder="グループ名（例：岡本家）" />
+      <button class="submit-btn" style="width:auto;padding:10px 16px;margin:0;" onclick="createGroup()">作成</button>
+    </div>
+  </div>
+
+  <!-- 参加フォーム -->
+  <div id="join-group-form" style="display:none;width:100%;margin-top:16px;">
+    <div class="name-custom">
+      <input type="text" id="join-code-input" placeholder="招待コード（例：ABC123）"
+        style="text-transform:uppercase;letter-spacing:2px;" maxlength="6" />
+      <button class="submit-btn" style="width:auto;padding:10px 16px;margin:0;" onclick="joinGroup()">参加</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== NAME SETUP (初回のみ) ===== -->
+<div id="name-setup-screen" class="name-setup" style="display:none;">
+  <div style="font-size:56px;margin-bottom:16px;">🛒</div>
+  <h1 id="name-setup-group-title">買いもの帳</h1>
+  <p>あなたはどちらですか？<br>リストに名前が表示されます</p>
+  <div class="name-btns">
+    <button class="name-btn" onclick="setMyName('ばぶさん')">👨 ばぶさん</button>
+    <button class="name-btn" onclick="setMyName('奥さん')">👩 奥さん</button>
+    <div class="name-custom">
+      <input type="text" id="custom-name-input" placeholder="その他の名前を入力" />
+      <button class="submit-btn" style="width:auto;padding:10px 16px;margin:0;" onclick="setCustomName()">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== LIST SCREEN ===== -->
+<div class="screen" id="screen-list">
+  <div class="header">
+    <div class="header-top">
+      <div>
+        <div class="header-title">🛒 買いもの帳</div>
+        <div class="sync-indicator">
+          <div class="sync-dot" id="sync-dot"></div>
+          <span id="sync-label">接続中...</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn" onclick="openCatEditModal()" title="カテゴリ編集">🏷️</button>
+        <button class="icon-btn" onclick="showScreen('screen-members')" title="メンバー">👥</button>
+      </div>
+    </div>
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('list',this)">📋 リスト</button>
+      <button class="tab" onclick="switchTab('recipe',this)">🍳 レシピ</button>
+    </div>
+  </div>
+
+  <div class="scroll-area" id="list-view">
+    <div id="list-container"></div>
+    <div class="checked-bar" id="checked-bar">
+      <span class="checked-bar-label" id="checked-bar-label"></span>
+      <button class="delete-all-btn" onclick="deleteAllChecked()">購入済みを削除</button>
+    </div>
+  </div>
+
+  <div class="scroll-area" id="recipe-view" style="display:none;">
+    <div id="recipe-container"></div>
+    <div style="padding:14px 0;text-align:center;">
+      <button onclick="openAddRecipeModal()" style="padding:10px 22px;border:2px dashed var(--border);border-radius:var(--radius);background:transparent;color:var(--text-sub);font-size:13px;cursor:pointer;font-weight:600;">＋ レシピを追加する</button>
+    </div>
+  </div>
+
+  <div class="bottom-nav">
+    <button class="nav-btn active-nav">🛒</button>
+    <button class="add-btn-main" onclick="openAddModal()" ontouchstart="document.getElementById('input-name').focus()">＋ 買うものを追加</button>
+    <button class="nav-btn" onclick="showScreen('screen-members')">👥</button>
+  </div>
+</div>
+
+<!-- ===== MEMBERS SCREEN ===== -->
+<div class="screen" id="screen-members">
+  <div class="header">
+    <div class="header-top">
+      <button class="icon-btn" onclick="showScreen('screen-list')">←</button>
+      <div class="header-title">メンバー</div>
+      <div style="width:32px;"></div>
+    </div>
+  </div>
+  <div class="scroll-area">
+
+    <!-- グループ招待コード -->
+    <div style="background:var(--green-light);border:2px solid var(--green-mid);border-radius:var(--radius);padding:14px;margin-bottom:16px;text-align:center;">
+      <div style="font-size:12px;color:var(--green);font-weight:600;margin-bottom:6px;">🏠 <span id="member-group-name"></span> の招待コード</div>
+      <div id="group-code-display" style="font-size:28px;font-weight:800;color:var(--green);letter-spacing:4px;margin-bottom:8px;"></div>
+      <p style="font-size:11px;color:var(--text-sub);">このコードを家族に伝えて参加してもらいましょう</p>
+      <button onclick="copyGroupCode()" style="margin-top:8px;padding:7px 16px;border:1px solid var(--green);border-radius:20px;background:var(--white);color:var(--green);font-size:12px;font-weight:700;cursor:pointer;">📋 コードをコピー</button>
+    </div>
+
+    <p style="font-size:12px;color:var(--text-sub);margin-bottom:14px;">このURLを共有してメンバーを招待してください</p>
+    <div id="member-list"></div>
+    <div style="margin-top:20px;">
+      <button onclick="copyUrl()" style="width:100%;padding:13px;background:var(--green);color:white;border:none;border-radius:var(--radius);font-size:14px;font-weight:700;cursor:pointer;">🔗 このページのURLをコピー</button>
+    </div>
+    <div style="margin-top:10px;">
+      <button onclick="changeName()" style="width:100%;padding:13px;background:var(--white);color:var(--text);border:2px solid var(--border);border-radius:var(--radius);font-size:14px;font-weight:600;cursor:pointer;">✏️ 自分の名前を変更</button>
+    </div>
+    <div style="margin-top:10px;">
+      <button onclick="if(confirm('別のグループに切り替えますか？\\n（このグループのデータは見えなくなります）'))changeGroup();"
+        style="width:100%;padding:13px;background:var(--white);color:var(--red);border:2px solid var(--border);border-radius:var(--radius);font-size:14px;font-weight:600;cursor:pointer;">
+        🔄 別のグループに切り替える
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== ADD MODAL ===== -->
+<div class="modal-overlay" id="modal-add">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">買うものを追加</div>
+    <div class="form-group">
+      <label class="form-label">名前</label>
+      <input type="text" class="form-input" id="input-name" placeholder="例：にんじん"
+        oninput="onNameInput(this.value)"
+        onblur="setTimeout(()=>hideSuggest(),150)"
+        autocomplete="off" />
+      <div id="suggest-list" class="suggest-list"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">カテゴリ</label>
+      <div class="cat-selector" id="modal-cat-selector"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">数量</label>
+      <div class="qty-row">
+        <button class="qty-btn" onclick="changeQty(-0.5)">－</button>
+        <div class="qty-display" id="qty-num-display">1</div>
+        <button class="qty-btn" onclick="changeQty(0.5)">＋</button>
+        <input type="text" class="qty-unit-input" id="qty-unit" value="個" />
+      </div>
+    </div>
+
+    <!-- 肉・魚カテゴリ時のみ表示：サイズ選択 -->
+    <div class="form-group" id="size-selector-group" style="display:none;">
+      <label class="form-label">サイズ</label>
+      <div style="display:flex;gap:8px;">
+        <button class="size-btn" onclick="selectSize('小', this)">🔹 小</button>
+        <button class="size-btn" onclick="selectSize('中', this)">🔶 中</button>
+        <button class="size-btn" onclick="selectSize('大', this)">🔴 大</button>
+        <button class="size-btn" onclick="selectSize('', this)">指定なし</button>
+      </div>
+    </div>
+
+    <!-- ここに追加ボタン（スクロール不要） -->
+    <button class="submit-btn" onclick="addItem()">リストに追加する</button>
+
+    <!-- 詳細オプション（折りたたみ） -->
+    <div style="margin-top:10px;">
+      <button onclick="toggleAddOptions()" id="add-options-toggle"
+        style="width:100%;padding:9px;border:1px solid var(--border);border-radius:var(--radius);background:var(--white);color:var(--text-sub);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+        <span id="add-options-arrow">▼</span> メモ・画像・急ぎを設定する
+      </button>
+      <div id="add-options-body" style="display:none;margin-top:10px;">
+        <div class="form-group">
+          <label class="form-label">メモ（任意）</label>
+          <input type="text" class="form-input" id="input-memo" placeholder="例：高ければ買わない" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">画像（任意）</label>
+          <div class="img-upload-area" onclick="document.getElementById('img-file-input').click()">
+            <input type="file" id="img-file-input" accept="image/*" onchange="onImageSelected(event)" style="display:none" />
+            <img class="img-upload-preview" id="img-preview" src="" alt="" />
+            <div class="img-upload-placeholder" id="img-placeholder">
+              <span class="big">📷</span>タップして写真を選択
+            </div>
+          </div>
+        </div>
+        <div class="form-group">
+          <div class="urgent-toggle" id="urgent-toggle" onclick="toggleUrgent()">
+            <span style="font-size:18px;">🔴</span>
+            <span style="flex:1;font-size:14px;font-weight:600;color:var(--text);">急ぎ</span>
+            <div class="toggle-dot"></div>
+          </div>
+        </div>
+        <!-- 詳細展開時の追加ボタンも -->
+        <button class="submit-btn" onclick="addItem()">リストに追加する</button>
+      </div>
+    </div>
+
+    <button class="cancel-btn" onclick="closeModal('modal-add')">キャンセル</button>
+  </div>
+</div>
+
+<!-- ===== CATEGORY EDIT MODAL ===== -->
+<div class="modal-overlay" id="modal-cat-edit">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">カテゴリを編集</div>
+    <div class="cat-edit-list" id="cat-edit-list"></div>
+    <button class="add-cat-btn" onclick="addNewCat()">＋ カテゴリを追加</button>
+    <button class="submit-btn" onclick="saveCats()">保存する</button>
+    <button class="cancel-btn" onclick="closeModal('modal-cat-edit')">キャンセル</button>
+  </div>
+</div>
+
+<!-- ===== ADD RECIPE MODAL ===== -->
+<div class="modal-overlay" id="modal-add-recipe">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">レシピを追加</div>
+    <div class="form-group">
+      <label class="form-label">料理名</label>
+      <input type="text" class="form-input" id="input-recipe-name" placeholder="例：カレー" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">レシピURL（任意）</label>
+      <input type="url" class="form-input" id="input-recipe-url-new" placeholder="https://cookpad.com/..." />
+    </div>
+    <div class="form-group">
+      <label class="form-label">材料（1行に1つ入力）</label>
+      <div id="recipe-ingredient-inputs"></div>
+      <button onclick="addIngredientInput()" style="margin-top:8px;padding:7px 14px;border:1px dashed var(--border);border-radius:20px;background:transparent;color:var(--text-sub);font-size:13px;cursor:pointer;">＋ 材料を追加</button>
+    </div>
+    <button class="submit-btn" onclick="saveNewRecipe()">レシピを保存</button>
+    <button class="cancel-btn" onclick="closeModal('modal-add-recipe')">キャンセル</button>
+  </div>
+</div>
+
+<!-- ===== ITEM EDIT MODAL ===== -->
+<div class="modal-overlay" id="modal-item-edit">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">材料を編集</div>
+    <div class="form-group">
+      <label class="form-label">名前</label>
+      <input type="text" class="form-input" id="edit-item-name" placeholder="例：にんじん" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">カテゴリ</label>
+      <div class="cat-selector" id="edit-item-cat-selector"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">数量</label>
+      <input type="text" class="form-input" id="edit-item-qty" placeholder="例：3本" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">メモ（任意）</label>
+      <input type="text" class="form-input" id="edit-item-memo" placeholder="例：高ければ買わない" />
+    </div>
+    <button class="submit-btn" onclick="saveItemEdit()">保存する</button>
+    <button onclick="deleteItem()" style="width:100%;padding:12px;border:none;background:transparent;color:var(--red);font-size:13px;cursor:pointer;margin-top:4px;font-weight:600;">🗑️ このアイテムを削除</button>
+    <button class="cancel-btn" onclick="closeModal('modal-item-edit')">キャンセル</button>
+  </div>
+</div>
+
+<!-- ===== RECIPE EDIT MODAL ===== -->
+<div class="modal-overlay" id="modal-recipe-edit">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">レシピを編集</div>
+    <div class="form-group" style="display:flex;gap:8px;">
+      <div style="flex-shrink:0;">
+        <label class="form-label">絵文字</label>
+        <input type="text" id="edit-recipe-emoji" maxlength="2"
+          style="width:48px;padding:10px;border:2px solid var(--border);border-radius:var(--radius);font-size:20px;text-align:center;outline:none;font-family:inherit;" />
+      </div>
+      <div style="flex:1;">
+        <label class="form-label">料理名</label>
+        <input type="text" class="form-input" id="edit-recipe-name" placeholder="例：カレー" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">レシピURL（任意）</label>
+      <input type="url" class="form-input" id="edit-recipe-url" placeholder="https://cookpad.com/..." />
+    </div>
+    <div class="form-group">
+      <label class="form-label">材料</label>
+      <div id="edit-recipe-ingredients"></div>
+      <button onclick="addEditIngredientInput()"
+        style="margin-top:8px;padding:7px 14px;border:1px dashed var(--border);border-radius:20px;background:transparent;color:var(--text-sub);font-size:13px;cursor:pointer;">
+        ＋ 材料を追加
+      </button>
+    </div>
+    <button class="submit-btn" onclick="saveRecipeEdit()">保存する</button>
+    <button onclick="deleteRecipe()" style="width:100%;padding:12px;border:none;background:transparent;color:var(--red);font-size:13px;cursor:pointer;margin-top:4px;font-weight:600;">
+      🗑️ このレシピを削除
+    </button>
+    <button class="cancel-btn" onclick="closeModal('modal-recipe-edit')">キャンセル</button>
+  </div>
+</div>
+
+<!-- ===== RECIPE INGREDIENT SELECT MODAL ===== -->
+<div class="modal-overlay" id="modal-recipe-select">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="recipe-select-title">材料を選択</div>
+    <p style="font-size:12px;color:var(--text-sub);margin-bottom:12px;">
+      家にある材料のチェックを外してください
+    </p>
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button onclick="toggleAllIngredients(true)"
+        style="flex:1;padding:7px;border:1px solid var(--border);border-radius:8px;background:var(--white);font-size:12px;cursor:pointer;color:var(--green);font-weight:600;">
+        すべて選択
+      </button>
+      <button onclick="toggleAllIngredients(false)"
+        style="flex:1;padding:7px;border:1px solid var(--border);border-radius:8px;background:var(--white);font-size:12px;cursor:pointer;color:var(--text-sub);font-weight:600;">
+        すべて外す
+      </button>
+    </div>
+    <div id="recipe-select-list"></div>
+    <button class="submit-btn" id="recipe-select-btn" onclick="addSelectedIngredients()">
+      選択した材料を追加
+    </button>
+    <button class="cancel-btn" onclick="closeModal('modal-recipe-select')">キャンセル</button>
+  </div>
+</div>
+
+<!-- ===== URL EDIT MODAL ===== -->
+<div class="modal-overlay" id="modal-url-edit">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">レシピURLを設定</div>
+    <div class="form-group">
+      <label class="form-label">レシピのURL</label>
+      <input type="url" class="form-input" id="input-recipe-url" placeholder="https://cookpad.com/..." />
+    </div>
+    <p style="font-size:12px;color:var(--text-sub);margin-bottom:14px;">クックパッド・YouTube など何でもOKです</p>
+    <button class="submit-btn" onclick="saveRecipeUrl()">保存する</button>
+    <button class="cancel-btn" onclick="closeModal('modal-url-edit')">キャンセル</button>
+  </div>
+</div>
+
+<!-- ===== IMAGE VIEWER ===== -->
+<div class="img-viewer-overlay" id="img-viewer" onclick="closeImgViewer()">
+  <button class="img-viewer-close">✕</button>
+  <img id="img-viewer-img" src="" alt="" />
+</div>
+
+<div class="toast" id="toast"></div>
+</div>
+
+<script>
+// ===== FIREBASE CONFIG =====
+const FIREBASE_URL = 'https://kaimono-rist-default-rtdb.firebaseio.com';
+
+// ===== GROUP ID =====
+let groupId = localStorage.getItem('kaimono_groupid') || '';
+let groupName = localStorage.getItem('kaimono_groupname') || '';
+
+function generateGroupCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 紛らわしい文字(I,O,0,1)を除外
+  let code = '';
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random()*chars.length)];
+  return code;
+}
+
+function showCreateGroup() {
+  document.getElementById('create-group-form').style.display = 'block';
+  document.getElementById('join-group-form').style.display = 'none';
+}
+function showJoinGroup() {
+  document.getElementById('join-group-form').style.display = 'block';
+  document.getElementById('create-group-form').style.display = 'none';
+}
+
+async function createGroup() {
+  const name = document.getElementById('group-name-input').value.trim();
+  if (!name) { showToast('グループ名を入力してください'); return; }
+
+  const code = generateGroupCode();
+  // グループ情報をFirebaseに保存（グループ存在確認用）
+  const res = await fetch(`${FIREBASE_URL}/groups/${code}/meta.json`, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ name, createdAt: Date.now() })
+  });
+  if (!res.ok) { showToast('作成に失敗しました。もう一度お試しください'); return; }
+
+  groupId = code;
+  groupName = name;
+  localStorage.setItem('kaimono_groupid', code);
+  localStorage.setItem('kaimono_groupname', name);
+
+  showToast(`✅ グループ「${name}」を作成しました（コード: ${code}）`);
+  proceedToNameSetup();
+}
+
+async function joinGroup() {
+  const code = document.getElementById('join-code-input').value.trim().toUpperCase();
+  if (!code) { showToast('招待コードを入力してください'); return; }
+
+  const res = await fetch(`${FIREBASE_URL}/groups/${code}/meta.json`);
+  const meta = res.ok ? await res.json() : null;
+  if (!meta) { showToast('そのコードのグループが見つかりません'); return; }
+
+  groupId = code;
+  groupName = meta.name || 'グループ';
+  localStorage.setItem('kaimono_groupid', code);
+  localStorage.setItem('kaimono_groupname', groupName);
+
+  showToast(`✅ 「${groupName}」に参加しました`);
+  proceedToNameSetup();
+}
+
+function proceedToNameSetup() {
+  document.getElementById('group-setup-screen').style.display = 'none';
+  document.getElementById('name-setup-screen').style.display = 'flex';
+  document.getElementById('name-setup-group-title').textContent = `🛒 ${groupName}`;
+}
+
+function changeGroup() {
+  localStorage.removeItem('kaimono_groupid');
+  localStorage.removeItem('kaimono_groupname');
+  localStorage.removeItem('kaimono_myname');
+  location.reload();
+}
+
+// ===== MY NAME =====
+let myName = localStorage.getItem('kaimono_myname') || '';
+
+function setMyName(name) {
+  myName = name;
+  localStorage.setItem('kaimono_myname', name);
+  document.getElementById('name-setup-screen').style.display = 'none';
+  document.getElementById('screen-list').classList.add('active');
+  startSync();
+}
+function setCustomName() {
+  const n = document.getElementById('custom-name-input').value.trim();
+  if (!n) return;
+  setMyName(n);
+}
+function changeName() {
+  localStorage.removeItem('kaimono_myname');
+  location.reload();
+}
+
+// ===== SYNC STATUS =====
+function setSyncStatus(status) {
+  const dot = document.getElementById('sync-dot');
+  const label = document.getElementById('sync-label');
+  if (status === 'syncing') { dot.className='sync-dot syncing'; label.textContent='同期中...'; }
+  else if (status === 'synced') { dot.className='sync-dot synced'; label.textContent='同期済み'; }
+  else { dot.className='sync-dot'; label.textContent='オフライン'; }
+}
+
+// ===== FIREBASE REST API（グループ単位で自動的にパスを分離） =====
+function groupPath(path) {
+  return `groups/${groupId}/${path}`;
+}
+async function fbGet(path) {
+  const res = await fetch(`${FIREBASE_URL}/${groupPath(path)}.json`);
+  return res.ok ? await res.json() : null;
+}
+async function fbSet(path, data) {
+  setSyncStatus('syncing');
+  const res = await fetch(`${FIREBASE_URL}/${groupPath(path)}.json`, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(data)
+  });
+  setSyncStatus(res.ok ? 'synced' : 'offline');
+  return res.ok;
+}
+async function fbPush(path, data) {
+  setSyncStatus('syncing');
+  const res = await fetch(`${FIREBASE_URL}/${groupPath(path)}.json`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(data)
+  });
+  setSyncStatus(res.ok ? 'synced' : 'offline');
+  if (!res.ok) return null;
+  const j = await res.json();
+  return j.name;
+}
+async function fbDelete(path) {
+  setSyncStatus('syncing');
+  const res = await fetch(`${FIREBASE_URL}/${groupPath(path)}.json`, { method:'DELETE' });
+  setSyncStatus(res.ok ? 'synced' : 'offline');
+}
+
+// ===== STATE =====
+let items = {};      // { firebaseKey: itemObj }
+let categories = [
+  { id:'veggie',    emoji:'🥦', name:'野菜・果物',  color:'#4a9e6f', bg:'#e8f5ee' },
+  { id:'meat',      emoji:'🥩', name:'肉・魚',      color:'#e07b39', bg:'#fef0e6' },
+  { id:'seasoning', emoji:'🧂', name:'調味料・乾物', color:'#b8930a', bg:'#fdf8e4' },
+  { id:'daily',     emoji:'🧴', name:'日用品',      color:'#4a7fb5', bg:'#eaf0f9' },
+  { id:'other',     emoji:'📦', name:'その他',      color:'#7b6bb5', bg:'#f0eef9' },
+];
+let recipes = {};    // { firebaseKey: recipeObj }
+let qtyNum = 1;
+let selectedCat = 'other';
+let isUrgent = false;
+let currentImage = null;
+let editingCats = [];
+let editingUrlKey = null;
+let pollTimer = null;
+
+// ===== POLLING (5秒ごとに同期) =====
+function startSync() {
+  loadAll();
+  pollTimer = setInterval(loadAll, 5000);
+}
+
+async function loadAll() {
+  // アイテム
+  const rawItems = await fbGet('items');
+  items = rawItems || {};
+  // カテゴリ
+  const rawCats = await fbGet('categories');
+  if (rawCats && Array.isArray(rawCats)) categories = rawCats;
+  // レシピ
+  const rawRecipes = await fbGet('recipes');
+  recipes = rawRecipes || {};
+  render();
+  renderRecipes();
+  renderMembers();
+  setSyncStatus('synced');
+}
+
+// ===== RENDER ITEMS =====
+function render() {
+  const container = document.getElementById('list-container');
+  container.innerHTML = '';
+
+  const allItems = Object.entries(items).map(([k,v]) => ({...v, _key:k}));
+  const unchecked = allItems.filter(i => !i.checked).sort((a,b) => (b.createdAt||0)-(a.createdAt||0));
+  const checked   = allItems.filter(i =>  i.checked).sort((a,b) => (b.checkedAt||0)-(a.checkedAt||0));
+
+  // 急ぎ
+  const urgentItems = unchecked.filter(i => i.urgent);
+  if (urgentItems.length) {
+    container.appendChild(makeCatSection(
+      { id:'urgent', emoji:'🔴', name:'急ぎ', color:'#d95f5f', bg:'#fdeaea' },
+      urgentItems
+    ));
+  }
+  // カテゴリ別
+  categories.forEach(cat => {
+    const catItems = unchecked.filter(i => i.cat === cat.id && !i.urgent);
+    if (!catItems.length) return;
+    container.appendChild(makeCatSection(cat, catItems));
+  });
+  // 購入済み
+  checked.forEach(item => container.appendChild(makeItemRow(item)));
+  updateCheckedBar(checked.length);
+
+  if (!allItems.length) {
+    container.innerHTML = '<div style="text-align:center;padding:50px 20px;color:#999;"><div style="font-size:44px;margin-bottom:10px;">🛒</div><p>リストは空です<br><small>「買うものを追加」で追加してみましょう</small></p></div>';
+  }
+}
+
+function updateCheckedBar(cnt) {
+  const bar = document.getElementById('checked-bar');
+  if (cnt > 0) {
+    bar.classList.add('visible');
+    document.getElementById('checked-bar-label').textContent = `購入済み ${cnt}件`;
+  } else {
+    bar.classList.remove('visible');
+  }
+}
+
+function makeCatSection(cat, catItems) {
+  const sec = document.createElement('div');
+  sec.className = 'cat-section';
+  sec.innerHTML = `<div class="cat-header">
+    <span class="cat-badge" style="background:${cat.bg};color:${cat.color};">${cat.emoji} ${cat.name}</span>
+    <span class="cat-count">${catItems.length}件</span>
+  </div>`;
+  catItems.forEach(item => sec.appendChild(makeItemRow(item)));
+  return sec;
+}
+
+function makeItemRow(item) {
+  const row = document.createElement('div');
+  row.className = 'item-row' + (item.checked ? ' checked' : '');
+  // 行全体タップでチェック
+  row.onclick = () => toggleCheck(item._key);
+  let thumbHtml = item.image
+    ? `<img class="item-thumb" src="${item.image}" onclick="event.stopPropagation();openImgViewer('${item.image}')" />`
+    : `<div class="item-thumb-placeholder">🛒</div>`;
+  row.innerHTML = `
+    <div class="check-circle">${item.checked ? '✓' : ''}</div>
+    ${thumbHtml}
+    <div class="item-body">
+      <div class="item-top">
+        <span class="item-name">${item.name}</span>
+        <span class="item-qty">${item.qty}</span>
+        ${item.memo ? `<span class="item-memo-tag">💬 ${item.memo}</span>` : ''}
+      </div>
+      <div class="item-who">${item.who} が追加</div>
+    </div>
+    ${item.urgent && !item.checked ? '<div class="urgent-dot"></div>' : ''}
+    <button onclick="event.stopPropagation();openItemEditModal('${item._key}')"
+      style="width:28px;height:28px;border:none;background:var(--gray-light);border-radius:50%;font-size:13px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;">✏️</button>`;
+  return row;
+}
+
+// ===== CHECK =====
+async function toggleCheck(key) {
+  const item = items[key];
+  if (!item) return;
+  item.checked = !item.checked;
+  item.checkedAt = item.checked ? Date.now() : null;
+  await fbSet(`items/${key}`, item);
+  render();
+  showToast(item.checked ? `✅ ${item.name} を購入済みに` : `↩️ ${item.name} を戻しました`);
+}
+
+async function deleteAllChecked() {
+  const checked = Object.entries(items).filter(([,v]) => v.checked);
+  for (const [k] of checked) {
+    await fbDelete(`items/${k}`);
+    delete items[k];
+  }
+  render();
+  showToast(`🗑️ 購入済み ${checked.length}件を削除しました`);
+}
+
+// ===== ADD ITEM =====
+function toggleAddOptions() {
+  const body   = document.getElementById('add-options-body');
+  const arrow  = document.getElementById('add-options-arrow');
+  const isOpen = body.style.display !== 'none';
+  body.style.display  = isOpen ? 'none' : 'block';
+  arrow.textContent   = isOpen ? '▼' : '▲';
+}
+
+function openAddModal() {
+  document.getElementById('input-name').value = '';
+  document.getElementById('input-memo').value = '';
+  document.getElementById('qty-unit').value = '個';
+  qtyNum=1; qtyStepIndex=1; selectedCat='other'; isUrgent=false; currentImage=null; selectedSize='';
+  updateQtyDisplay();
+  document.getElementById('urgent-toggle').classList.remove('on');
+  document.getElementById('size-selector-group').style.display='none';
+  document.querySelectorAll('.size-btn').forEach(b=>b.classList.remove('selected'));
+  document.getElementById('img-preview').style.display='none';
+  document.getElementById('img-placeholder').style.display='block';
+  document.getElementById('img-preview').src='';
+  document.getElementById('img-file-input').value='';
+  // 詳細オプションを閉じてリセット
+  document.getElementById('add-options-body').style.display = 'none';
+  document.getElementById('add-options-arrow').textContent = '▼';
+  renderModalCats();
+  document.getElementById('modal-add').classList.add('open');
+  // ② モーダルを一番上にスクロール
+  document.querySelector('#modal-add .modal').scrollTop = 0;
+  // ① 自動でキーボードを出す（iOS対応）
+  const nameInput = document.getElementById('input-name');
+  nameInput.removeAttribute('readonly');
+  setTimeout(() => {
+    nameInput.focus();
+    nameInput.click();
+  }, 400);
+}
+
+// モーダルが開いたら上にスクロール
+document.getElementById('modal-add').addEventListener('click', function(e) {
+  if (e.target === this) closeModal('modal-add');
+});
+
+function renderModalCats() {
+  const sel = document.getElementById('modal-cat-selector');
+  sel.innerHTML='';
+  categories.forEach(cat => {
+    const btn = document.createElement('button');
+    btn.className = 'cat-option' + (cat.id===selectedCat ? ' selected' : '');
+    btn.textContent = cat.emoji+' '+cat.name;
+    btn.onclick = () => {
+      selectedCat = cat.id;
+      sel.querySelectorAll('.cat-option').forEach(b=>b.classList.remove('selected'));
+      btn.classList.add('selected');
+      // 肉・魚カテゴリ時のみサイズ選択を表示
+      document.getElementById('size-selector-group').style.display =
+        cat.id === 'meat' ? 'block' : 'none';
+    };
+    sel.appendChild(btn);
+  });
+  // 初期表示時にも反映
+  document.getElementById('size-selector-group').style.display =
+    selectedCat === 'meat' ? 'block' : 'none';
+}
+
+// 数量のステップ: 0.5→1→2→3→4...
+const qtySteps = [0.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+let qtyStepIndex = 1; // デフォルト1
+
+function changeQty(dir) {
+  if (dir > 0) {
+    qtyStepIndex = Math.min(qtyStepIndex + 1, qtySteps.length - 1);
+  } else {
+    qtyStepIndex = Math.max(qtyStepIndex - 1, 0);
+  }
+  qtyNum = qtySteps[qtyStepIndex];
+  updateQtyDisplay();
+}
+function updateQtyDisplay() {
+  document.getElementById('qty-num-display').textContent = qtyNum % 1 === 0 ? qtyNum : qtyNum;
+}
+
+// サイズ選択
+let selectedSize = '';
+function selectSize(size, btn) {
+  selectedSize = size;
+  document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+}
+function toggleUrgent() {
+  isUrgent=!isUrgent;
+  document.getElementById('urgent-toggle').classList.toggle('on',isUrgent);
+}
+
+async function addItem() {
+  const name = document.getElementById('input-name').value.trim();
+  if (!name) { showToast('名前を入力してください'); return; }
+  const unit = document.getElementById('qty-unit').value.trim() || '個';
+  const memo = document.getElementById('input-memo').value.trim();
+  const sizeLabel = selectedSize ? `【${selectedSize}】` : '';
+  const newItem = {
+    name, cat:selectedCat, qty:qtyNum+unit + sizeLabel,
+    memo, urgent:isUrgent, checked:false,
+    who:myName, createdAt:Date.now(), image:currentImage||null
+  };
+  const key = await fbPush('items', newItem);
+  if (key) {
+    items[key] = {...newItem, _key:key};
+    render();
+  }
+  closeModal('modal-add');
+  showToast(`✅ ${name} を追加しました`);
+}
+
+// ===== IMAGE =====
+function onImageSelected(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  // 圧縮してbase64化
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const MAX = 300;
+      let w=img.width, h=img.height;
+      if (w>h) { if(w>MAX){h=h*MAX/w;w=MAX;} } else { if(h>MAX){w=w*MAX/h;h=MAX;} }
+      canvas.width=w; canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      currentImage = canvas.toDataURL('image/jpeg', 0.7);
+      document.getElementById('img-preview').src = currentImage;
+      document.getElementById('img-preview').style.display = 'block';
+      document.getElementById('img-placeholder').style.display = 'none';
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+function openImgViewer(src) {
+  document.getElementById('img-viewer-img').src=src;
+  document.getElementById('img-viewer').classList.add('open');
+}
+function closeImgViewer() { document.getElementById('img-viewer').classList.remove('open'); }
+
+// ===== ITEM EDIT =====
+let editingItemKey = null;
+
+function openItemEditModal(key) {
+  const item = items[key];
+  if (!item) return;
+  editingItemKey = key;
+  document.getElementById('edit-item-name').value = item.name || '';
+  document.getElementById('edit-item-qty').value  = item.qty  || '';
+  document.getElementById('edit-item-memo').value = item.memo || '';
+  // カテゴリセレクター
+  const sel = document.getElementById('edit-item-cat-selector');
+  sel.innerHTML = '';
+  categories.forEach(cat => {
+    const btn = document.createElement('button');
+    btn.className = 'cat-option' + (cat.id === item.cat ? ' selected' : '');
+    btn.textContent = cat.emoji + ' ' + cat.name;
+    btn.onclick = () => {
+      sel.querySelectorAll('.cat-option').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+    };
+    sel.appendChild(btn);
+  });
+  document.getElementById('modal-item-edit').classList.add('open');
+}
+
+async function saveItemEdit() {
+  const name = document.getElementById('edit-item-name').value.trim();
+  if (!name) { showToast('名前を入力してください'); return; }
+  const qty  = document.getElementById('edit-item-qty').value.trim();
+  const memo = document.getElementById('edit-item-memo').value.trim();
+  const catBtn = document.querySelector('#edit-item-cat-selector .cat-option.selected');
+  const cat  = catBtn ? categories.find(c => catBtn.textContent.includes(c.name))?.id || 'other' : 'other';
+  items[editingItemKey] = { ...items[editingItemKey], name, qty, memo, cat };
+  await fbSet(`items/${editingItemKey}`, items[editingItemKey]);
+  closeModal('modal-item-edit');
+  render();
+  showToast('✅ 保存しました');
+}
+
+async function deleteItem() {
+  const name = items[editingItemKey]?.name || 'このアイテム';
+  if (!confirm(`「${name}」を削除してもよいですか？`)) return;
+  await fbDelete(`items/${editingItemKey}`);
+  delete items[editingItemKey];
+  closeModal('modal-item-edit');
+  render();
+  showToast(`🗑️ ${name} を削除しました`);
+}
+
+// ===== CATEGORY EDIT =====
+function openCatEditModal() {
+  editingCats = categories.map(c=>({...c}));
+  renderCatEditList();
+  document.getElementById('modal-cat-edit').classList.add('open');
+}
+function renderCatEditList() {
+  const list = document.getElementById('cat-edit-list');
+  list.innerHTML='';
+  editingCats.forEach((cat,idx) => {
+    const row=document.createElement('div');
+    row.className='cat-edit-row';
+    row.innerHTML=`
+      <input class="cat-emoji-input" value="${cat.emoji}" maxlength="2" oninput="editingCats[${idx}].emoji=this.value" />
+      <input class="cat-name-input" value="${cat.name}" placeholder="カテゴリ名を入力" oninput="editingCats[${idx}].name=this.value" />
+      <button class="cat-del-btn" onclick="deleteCat(${idx})">✕</button>`;
+    list.appendChild(row);
+  });
+}
+function deleteCat(idx) { editingCats.splice(idx,1); renderCatEditList(); }
+function addNewCat() {
+  editingCats.push({id:'cat_'+Date.now(),emoji:'📌',name:'',color:'#888',bg:'#f5f5f5'});
+  renderCatEditList();
+}
+async function saveCats() {
+  categories = editingCats;
+  await fbSet('categories', categories);
+  closeModal('modal-cat-edit');
+  showToast('カテゴリを保存しました');
+  render();
+}
+
+// ===== RECIPE =====
+function renderRecipes() {
+  const container = document.getElementById('recipe-container');
+  container.innerHTML='';
+  Object.entries(recipes).forEach(([key,recipe]) => {
+    const div=document.createElement('div');
+    div.className='recipe-group';
+    const ingHtml = (recipe.ingredients||[]).map(i=>
+      `<div class="recipe-ingredient">${i.emoji||'🥗'} ${i.name}<span style="margin-left:auto;color:#999;font-size:12px;">${i.qty||''}</span></div>`
+    ).join('');
+    const urlHtml = recipe.url
+      ? `<a href="${recipe.url}" target="_blank" class="recipe-url-btn">🔗 レシピを見る</a>
+         <button class="recipe-url-edit-btn" onclick="openUrlEdit('${key}')">✏️</button>`
+      : `<span class="recipe-url-empty">URLが未登録です</span>
+         <button class="recipe-url-edit-btn" onclick="openUrlEdit('${key}')">＋ URL追加</button>`;
+    div.innerHTML=`
+      <div class="recipe-header" onclick="this.nextElementSibling.classList.toggle('open')">
+        <div class="recipe-icon" style="background:#fef0e6;">${recipe.emoji||'🍳'}</div>
+        <div>
+          <div class="recipe-title">${recipe.name}</div>
+          <div class="recipe-sub">${(recipe.ingredients||[]).length}品目</div>
+        </div>
+        <button class="recipe-url-edit-btn" onclick="event.stopPropagation();openRecipeEditModal('${key}')" style="margin-right:4px;">✏️</button>
+        <button class="recipe-add-btn" onclick="event.stopPropagation();addRecipeItems('${key}',this)">まとめて追加</button>
+      </div>
+      <div class="recipe-items">
+        ${ingHtml}
+        <div class="recipe-url-row">${urlHtml}</div>
+      </div>`;
+    container.appendChild(div);
+  });
+}
+
+function openAddRecipeModal() {
+  document.getElementById('input-recipe-name').value='';
+  document.getElementById('input-recipe-url-new').value='';
+  document.getElementById('recipe-ingredient-inputs').innerHTML='';
+  addIngredientInput(); addIngredientInput(); addIngredientInput();
+  document.getElementById('modal-add-recipe').classList.add('open');
+}
+
+function addIngredientInput() {
+  const catOptions = categories.map(c =>
+    `<option value="${c.id}">${c.emoji} ${c.name}</option>`
+  ).join('');
+  const wrap = document.createElement('div');
+  wrap.className = 'ing-input-row'; // ← クラスで識別
+  wrap.style.cssText = 'margin-bottom:8px;border:1px solid var(--border);border-radius:8px;padding:8px;';
+  wrap.innerHTML = `
+    <div style="display:flex;gap:6px;margin-bottom:6px;">
+      <input type="text" placeholder="名前（例：にんじん）"
+        style="flex:2;padding:8px;border:2px solid var(--border);border-radius:8px;font-size:13px;outline:none;font-family:inherit;" />
+      <input type="text" placeholder="量"
+        style="flex:1;padding:8px;border:2px solid var(--border);border-radius:8px;font-size:13px;outline:none;font-family:inherit;" />
+      <button onclick="this.closest('.ing-input-row').remove()"
+        style="width:28px;height:28px;border:none;background:var(--red-light);color:var(--red);border-radius:50%;font-size:14px;cursor:pointer;flex-shrink:0;">✕</button>
+    </div>
+    <select style="width:100%;padding:7px;border:2px solid var(--border);border-radius:8px;font-size:13px;outline:none;font-family:inherit;background:var(--white);">
+      ${catOptions}
+    </select>`;
+  document.getElementById('recipe-ingredient-inputs').appendChild(wrap);
+}
+
+async function saveNewRecipe() {
+  const name=document.getElementById('input-recipe-name').value.trim();
+  if (!name) { showToast('料理名を入力してください'); return; }
+  const url=document.getElementById('input-recipe-url-new').value.trim();
+  const rows = document.getElementById('recipe-ingredient-inputs').querySelectorAll('.ing-input-row');
+  const ingredients=[];
+  rows.forEach(row=>{
+    const inputs = row.querySelectorAll('input');
+    const sel    = row.querySelector('select');
+    const n = inputs[0].value.trim();
+    const q = inputs[1].value.trim();
+    const cat = sel ? sel.value : 'other';
+    if (n) {
+      const master = foodMaster.find(f => f.name === n);
+      ingredients.push({name:n, qty:q, emoji:master?master.emoji:'🥗', cat});
+    }
+  });
+  const newRecipe={name,url,ingredients,emoji:'🍳',createdAt:Date.now()};
+  const key=await fbPush('recipes',newRecipe);
+  if (key) recipes[key]={...newRecipe};
+  renderRecipes();
+  closeModal('modal-add-recipe');
+  showToast(`🍳 ${name} を追加しました`);
+}
+
+// 材料選択用の状態
+let selectingRecipeKey = null;
+let ingredientSelections = []; // { ing, selected }
+
+function addRecipeItems(key, btn) {
+  const recipe = recipes[key];
+  if (!recipe) return;
+
+  selectingRecipeKey = key;
+  ingredientSelections = (recipe.ingredients||[]).map(ing => {
+    const alreadyHave = Object.values(items).find(i => i.name===ing.name && !i.checked);
+    return { ing, selected: !alreadyHave }; // 既にリストにある→デフォルトOFF
+  });
+
+  // タイトル
+  document.getElementById('recipe-select-title').textContent = `🍳 ${recipe.name}の材料を選択`;
+  renderIngredientSelectList();
+  document.getElementById('modal-recipe-select').classList.add('open');
+}
+
+function renderIngredientSelectList() {
+  const list = document.getElementById('recipe-select-list');
+  list.innerHTML = '';
+  ingredientSelections.forEach((s, idx) => {
+    const alreadyHave = Object.values(items).find(i => i.name===s.ing.name && !i.checked);
+    const row = document.createElement('div');
+    row.className = 'ing-select-item';
+    row.onclick = () => {
+      if (alreadyHave) return; // リスト済みは変更不可
+      ingredientSelections[idx].selected = !ingredientSelections[idx].selected;
+      renderIngredientSelectList();
+    };
+    row.innerHTML = `
+      <div class="ing-check-box ${s.selected && !alreadyHave ? 'on' : ''}">
+        ${s.selected && !alreadyHave ? '✓' : ''}
+      </div>
+      <span class="ing-select-name">${s.ing.emoji||'🥗'} ${s.ing.name}</span>
+      <span class="ing-select-qty">${s.ing.qty||''}</span>
+      ${alreadyHave ? '<span class="ing-already">リスト済み</span>' : ''}
+    `;
+    list.appendChild(row);
+  });
+
+  // ボタンのカウント更新
+  const cnt = ingredientSelections.filter(s => {
+    const already = Object.values(items).find(i => i.name===s.ing.name && !i.checked);
+    return s.selected && !already;
+  }).length;
+  document.getElementById('recipe-select-btn').textContent =
+    cnt > 0 ? `選択した ${cnt}品 をリストに追加` : '追加する材料を選択してください';
+}
+
+function toggleAllIngredients(val) {
+  ingredientSelections.forEach((s, idx) => {
+    const already = Object.values(items).find(i => i.name===s.ing.name && !i.checked);
+    if (!already) ingredientSelections[idx].selected = val;
+  });
+  renderIngredientSelectList();
+}
+
+async function addSelectedIngredients() {
+  const toAdd = ingredientSelections.filter(s => {
+    const already = Object.values(items).find(i => i.name===s.ing.name && !i.checked);
+    return s.selected && !already;
+  });
+  if (!toAdd.length) { showToast('追加する材料を選択してください'); return; }
+
+  for (const s of toAdd) {
+    const ing = s.ing;
+    const newItem = {
+      name:ing.name, cat:ing.cat||'other', qty:ing.qty||'適量',
+      memo:'', urgent:false, checked:false,
+      who:myName, createdAt:Date.now(), image:null
+    };
+    const k = await fbPush('items', newItem);
+    if (k) items[k] = {...newItem, _key:k};
+  }
+  render();
+  closeModal('modal-recipe-select');
+  showToast(`🍳 ${toAdd.length}品をリストに追加しました`);
+}
+
+// ===== RECIPE EDIT =====
+let editingRecipeKey = null;
+
+function openRecipeEditModal(key) {
+  const recipe = recipes[key];
+  if (!recipe) return;
+  editingRecipeKey = key;
+  document.getElementById('edit-recipe-emoji').value = recipe.emoji || '🍳';
+  document.getElementById('edit-recipe-name').value = recipe.name || '';
+  document.getElementById('edit-recipe-url').value = recipe.url || '';
+  const container = document.getElementById('edit-recipe-ingredients');
+  container.innerHTML = '';
+  (recipe.ingredients||[]).forEach(ing => addEditIngredientInput(ing));
+  document.getElementById('modal-recipe-edit').classList.add('open');
+}
+
+function addEditIngredientInput(ing) {
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'display:flex;gap:6px;margin-bottom:6px;align-items:center;';
+  wrap.innerHTML = `
+    <input type="text" placeholder="名前" value="${ing ? ing.name : ''}"
+      style="flex:2;padding:8px;border:2px solid var(--border);border-radius:8px;font-size:13px;outline:none;font-family:inherit;" />
+    <input type="text" placeholder="量" value="${ing ? ing.qty||'' : ''}"
+      style="flex:1;padding:8px;border:2px solid var(--border);border-radius:8px;font-size:13px;outline:none;font-family:inherit;" />
+    <button onclick="this.parentElement.remove()"
+      style="width:28px;height:28px;border:none;background:var(--red-light);color:var(--red);border-radius:50%;font-size:14px;cursor:pointer;flex-shrink:0;">✕</button>`;
+  document.getElementById('edit-recipe-ingredients').appendChild(wrap);
+}
+
+async function saveRecipeEdit() {
+  const name = document.getElementById('edit-recipe-name').value.trim();
+  if (!name) { showToast('料理名を入力してください'); return; }
+  const emoji = document.getElementById('edit-recipe-emoji').value.trim() || '🍳';
+  const url   = document.getElementById('edit-recipe-url').value.trim();
+  const rows  = document.getElementById('edit-recipe-ingredients').querySelectorAll('div');
+  const ingredients = [];
+  rows.forEach(row => {
+    const inputs = row.querySelectorAll('input');
+    const n = inputs[0].value.trim();
+    const q = inputs[1].value.trim();
+    if (n) {
+      const master = foodMaster.find(f => f.name === n);
+      ingredients.push({ name:n, qty:q, emoji:master?master.emoji:'🥗', cat:master?master.cat:'other' });
+    }
+  });
+  recipes[editingRecipeKey] = { ...recipes[editingRecipeKey], name, emoji, url, ingredients };
+  await fbSet(`recipes/${editingRecipeKey}`, recipes[editingRecipeKey]);
+  closeModal('modal-recipe-edit');
+  renderRecipes();
+  showToast('✅ レシピを保存しました');
+}
+
+async function deleteRecipe() {
+  if (!editingRecipeKey) return;
+  const name = recipes[editingRecipeKey]?.name || 'このレシピ';
+  if (!confirm(`「${name}」を削除してもよいですか？`)) return;
+  await fbDelete(`recipes/${editingRecipeKey}`);
+  delete recipes[editingRecipeKey];
+  closeModal('modal-recipe-edit');
+  renderRecipes();
+  showToast(`🗑️ ${name} を削除しました`);
+}
+
+function openUrlEdit(key) {
+  editingUrlKey=key;
+  document.getElementById('input-recipe-url').value=recipes[key]?.url||'';
+  document.getElementById('modal-url-edit').classList.add('open');
+}
+async function saveRecipeUrl() {
+  const url=document.getElementById('input-recipe-url').value.trim();
+  if (recipes[editingUrlKey]) {
+    recipes[editingUrlKey].url=url;
+    await fbSet(`recipes/${editingUrlKey}`,recipes[editingUrlKey]);
+  }
+  closeModal('modal-url-edit');
+  renderRecipes();
+  showToast(url?'🔗 URLを保存しました':'URLを削除しました');
+}
+
+// ===== MEMBERS =====
+function renderMembers() {
+  // グループ情報表示
+  document.getElementById('group-code-display').textContent = groupId;
+  document.getElementById('member-group-name').textContent = groupName;
+
+  const allItems=Object.values(items);
+  const names=[...new Set(allItems.map(i=>i.who).filter(Boolean))];
+  const list=document.getElementById('member-list');
+  list.innerHTML='';
+  names.forEach(name=>{
+    const cnt=allItems.filter(i=>i.who===name&&!i.checked).length;
+    const div=document.createElement('div');
+    div.className='member-card';
+    div.innerHTML=`
+      <div class="member-avatar" style="background:#e8f5ee;">${name===myName?'👤':'👥'}</div>
+      <div>
+        <div class="member-name">${name}${name===myName?' (自分)':''}</div>
+        <div class="member-role">メンバー</div>
+      </div>
+      <div class="member-count">${cnt}件追加中</div>`;
+    list.appendChild(div);
+  });
+  if (!names.length) {
+    list.innerHTML='<p style="font-size:13px;color:var(--text-sub);">まだメンバーがいません</p>';
+  }
+}
+
+function copyGroupCode() {
+  navigator.clipboard.writeText(groupId).then(()=>showToast(`📋 招待コード「${groupId}」をコピーしました`));
+}
+
+function copyUrl() {
+  navigator.clipboard.writeText(location.href).then(()=>showToast('URLをコピーしました！'));
+}
+
+
+// ===== SUGGEST =====
+const foodMaster = [
+  {emoji:'🥕',name:'にんじん',yomi:'にんじん',cat:'veggie'},
+  {emoji:'🧄',name:'ニンニク',yomi:'にんにく',cat:'veggie'},
+  {emoji:'🥔',name:'じゃがいも',yomi:'じゃがいも',cat:'veggie'},
+  {emoji:'🧅',name:'玉ねぎ',yomi:'たまねぎ',cat:'veggie'},
+  {emoji:'🥦',name:'ブロッコリー',yomi:'ぶろっこりー',cat:'veggie'},
+  {emoji:'🥬',name:'ほうれん草',yomi:'ほうれんそう',cat:'veggie'},
+  {emoji:'🥬',name:'小松菜',yomi:'こまつな',cat:'veggie'},
+  {emoji:'🥒',name:'きゅうり',yomi:'きゅうり',cat:'veggie'},
+  {emoji:'🍅',name:'トマト',yomi:'とまと',cat:'veggie'},
+  {emoji:'🍆',name:'なす',yomi:'なす',cat:'veggie'},
+  {emoji:'🌽',name:'とうもろこし',yomi:'とうもろこし',cat:'veggie'},
+  {emoji:'🥑',name:'アボカド',yomi:'あぼかど',cat:'veggie'},
+  {emoji:'🍠',name:'さつまいも',yomi:'さつまいも',cat:'veggie'},
+  {emoji:'🧅',name:'長ねぎ',yomi:'ながねぎ',cat:'veggie'},
+  {emoji:'🫚',name:'生姜',yomi:'しょうが',cat:'veggie'},
+  {emoji:'🍄',name:'しいたけ',yomi:'しいたけ',cat:'veggie'},
+  {emoji:'🍄',name:'えのき',yomi:'えのき',cat:'veggie'},
+  {emoji:'🍋',name:'レモン',yomi:'れもん',cat:'veggie'},
+  {emoji:'🍎',name:'りんご',yomi:'りんご',cat:'veggie'},
+  {emoji:'🍌',name:'バナナ',yomi:'ばなな',cat:'veggie'},
+  {emoji:'🍊',name:'みかん',yomi:'みかん',cat:'veggie'},
+  {emoji:'🥩',name:'豚こま切れ',yomi:'ぶたこまぎれ',cat:'meat'},
+  {emoji:'🥩',name:'豚バラ肉',yomi:'ぶたばらにく',cat:'meat'},
+  {emoji:'🥩',name:'鶏むね肉',yomi:'とりむねにく',cat:'meat'},
+  {emoji:'🥩',name:'鶏もも肉',yomi:'とりももにく',cat:'meat'},
+  {emoji:'🥩',name:'牛こま切れ',yomi:'うしこまぎれ',cat:'meat'},
+  {emoji:'🥩',name:'牛バラ肉',yomi:'うしばらにく',cat:'meat'},
+  {emoji:'🐟',name:'鮭',yomi:'さけ',cat:'meat'},
+  {emoji:'🐟',name:'さんま',yomi:'さんま',cat:'meat'},
+  {emoji:'🦐',name:'えび',yomi:'えび',cat:'meat'},
+  {emoji:'🦑',name:'いか',yomi:'いか',cat:'meat'},
+  {emoji:'🐷',name:'ひき肉',yomi:'ひきにく',cat:'meat'},
+  {emoji:'🥚',name:'卵',yomi:'たまご',cat:'other'},
+  {emoji:'🧂',name:'塩',yomi:'しお',cat:'seasoning'},
+  {emoji:'🫙',name:'醤油',yomi:'しょうゆ',cat:'seasoning'},
+  {emoji:'🫙',name:'味噌',yomi:'みそ',cat:'seasoning'},
+  {emoji:'🍶',name:'みりん',yomi:'みりん',cat:'seasoning'},
+  {emoji:'🍶',name:'料理酒',yomi:'りょうりしゅ',cat:'seasoning'},
+  {emoji:'🫙',name:'砂糖',yomi:'さとう',cat:'seasoning'},
+  {emoji:'🫙',name:'酢',yomi:'す',cat:'seasoning'},
+  {emoji:'🫙',name:'サラダ油',yomi:'さらだあぶら',cat:'seasoning'},
+  {emoji:'🫙',name:'ごま油',yomi:'ごまあぶら',cat:'seasoning'},
+  {emoji:'🧄',name:'にんにくチューブ',yomi:'にんにくちゅーぶ',cat:'seasoning'},
+  {emoji:'🫙',name:'カレールー',yomi:'かれーるー',cat:'seasoning'},
+  {emoji:'🍜',name:'だし',yomi:'だし',cat:'seasoning'},
+  {emoji:'🧊',name:'豆腐',yomi:'とうふ',cat:'other'},
+  {emoji:'🌿',name:'乾燥わかめ',yomi:'かんそうわかめ',cat:'seasoning'},
+  {emoji:'🍶',name:'麺つゆ',yomi:'めんつゆ',cat:'seasoning'},
+  {emoji:'🧴',name:'シャンプー',yomi:'しゃんぷー',cat:'daily'},
+  {emoji:'🧴',name:'コンディショナー',yomi:'こんでぃしょなー',cat:'daily'},
+  {emoji:'🪥',name:'歯ブラシ',yomi:'はぶらし',cat:'daily'},
+  {emoji:'🪥',name:'歯磨き粉',yomi:'はみがきこ',cat:'daily'},
+  {emoji:'🧻',name:'トイレットペーパー',yomi:'といれっとぺーぱー',cat:'daily'},
+  {emoji:'🧻',name:'ティッシュ',yomi:'てぃっしゅ',cat:'daily'},
+  {emoji:'🧼',name:'洗剤',yomi:'せんざい',cat:'daily'},
+  {emoji:'🧽',name:'スポンジ',yomi:'すぽんじ',cat:'daily'},
+  {emoji:'🥛',name:'牛乳',yomi:'ぎゅうにゅう',cat:'other'},
+  {emoji:'🧀',name:'チーズ',yomi:'ちーず',cat:'other'},
+  {emoji:'🍞',name:'食パン',yomi:'しょくぱん',cat:'other'},
+  {emoji:'🥐',name:'ベーグル',yomi:'べーぐる',cat:'other'},
+  {emoji:'🍝',name:'パスタ',yomi:'ぱすた',cat:'other'},
+  {emoji:'🥜',name:'ピーナッツ',yomi:'ぴーなっつ',cat:'other'},
+  {emoji:'🫘',name:'納豆',yomi:'なっとう',cat:'other'},
+];
+
+function onNameInput(val) {
+  const q=val.trim();
+  if (!q) { hideSuggest(); return; }
+  const normalize=s=>s.replace(/[\u30A1-\u30F6]/g,c=>String.fromCharCode(c.charCodeAt(0)-0x60)).toLowerCase();
+  const nq=normalize(q);
+  const pastNames=[...new Set(Object.values(items).map(i=>i.name))];
+  const pastExtra=pastNames.filter(n=>!foodMaster.find(f=>f.name===n))
+    .map(n=>({emoji:'🛒',name:n,yomi:normalize(n),cat:'other'}));
+  const all=[...foodMaster,...pastExtra];
+  const matched=all.filter(f=>normalize(f.name).includes(nq)||normalize(f.yomi||f.name).includes(nq)).slice(0,8);
+  const list=document.getElementById('suggest-list');
+  list.innerHTML='';
+  matched.forEach(f=>{
+    const el=document.createElement('div');
+    el.className='suggest-item';
+    const catObj=categories.find(c=>c.id===f.cat);
+    const catLabel=catObj?catObj.emoji+' '+catObj.name:'';
+    const hl=f.name.replace(new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'),m=>`<mark>${m}</mark>`);
+    el.innerHTML=`<span class="suggest-item-emoji">${f.emoji}</span>
+      <div class="suggest-item-info">
+        <div class="suggest-item-name">${hl}</div>
+        <div class="suggest-item-cat">${catLabel}</div>
+      </div>`;
+    el.onmousedown=()=>selectSuggest(f);
+    list.appendChild(el);
+  });
+  if (!matched.find(f=>normalize(f.name)===nq)) {
+    const el=document.createElement('div');
+    el.className='suggest-new';
+    el.innerHTML=`<span>＋</span>「${q}」を新しく追加`;
+    el.onmousedown=()=>{document.getElementById('input-name').value=q;hideSuggest();};
+    list.appendChild(el);
+  }
+  list.classList.add('open');
+  document.getElementById('input-name').style.borderRadius='var(--radius) var(--radius) 0 0';
+}
+function selectSuggest(f) {
+  document.getElementById('input-name').value=f.name;
+  selectedCat=f.cat||'other';
+  renderModalCats();
+  hideSuggest();
+}
+function hideSuggest() {
+  document.getElementById('suggest-list').classList.remove('open');
+  document.getElementById('input-name').style.borderRadius='var(--radius)';
+}
+
+// ===== UTILS =====
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function switchTab(tab,btn) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('list-view').style.display=tab==='list'?'block':'none';
+  document.getElementById('recipe-view').style.display=tab==='recipe'?'block':'none';
+}
+function showToast(msg) {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+// ===== INIT =====
+if (!groupId) {
+  // グループ未設定 → グループ選択画面から開始
+  document.getElementById('group-setup-screen').style.display='flex';
+} else if (!myName) {
+  // グループは設定済みだが名前未設定
+  document.getElementById('name-setup-screen').style.display='flex';
+  document.getElementById('name-setup-group-title').textContent = `🛒 ${groupName}`;
+} else {
+  // 両方設定済み → 通常起動
+  document.getElementById('screen-list').classList.add('active');
+  startSync();
+}
+</script>
+</body>
+</html>
