@@ -849,6 +849,45 @@ body { font-family:-apple-system,'Hiragino Sans',sans-serif; background:#eff3ef;
 <script>
 // ===== FIREBASE CONFIG =====
 const FIREBASE_URL = 'https://kaimono-rist-default-rtdb.firebaseio.com';
+const FIREBASE_API_KEY = 'AIzaSyC3FcX4qQGtfU221_dSJafby_9P6J7Kymw';  // Firebase プロジェクトの設定 → ウェブ API キー
+
+// ===== 匿名ログイン（利用者の操作なしで裏でログインし、ルールで保護されたDBにアクセスする） =====
+let authToken = null;
+let authExpires = 0;
+
+async function getAuthToken() {
+  if (authToken && Date.now() < authExpires) return authToken;
+  const refresh = localStorage.getItem('kaimono_refresh');
+  let res, j;
+  if (refresh) {
+    res = await fetch(`https://securetoken.googleapis.com/v1/token?key=${FIREBASE_API_KEY}`, {
+      method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(refresh)}`
+    });
+    if (res.ok) {
+      j = await res.json();
+      authToken = j.id_token;
+      localStorage.setItem('kaimono_refresh', j.refresh_token);
+      authExpires = Date.now() + (Number(j.expires_in) - 300) * 1000;
+      return authToken;
+    }
+  }
+  // 初回（または更新失敗時）は匿名アカウントを新しく作る
+  res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${FIREBASE_API_KEY}`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ returnSecureToken: true })
+  });
+  if (!res.ok) throw new Error('匿名ログインに失敗しました');
+  j = await res.json();
+  authToken = j.idToken;
+  localStorage.setItem('kaimono_refresh', j.refreshToken);
+  authExpires = Date.now() + (Number(j.expiresIn) - 300) * 1000;
+  return authToken;
+}
+
+async function dbUrl(path) {
+  return `${FIREBASE_URL}/${path}.json?auth=${await getAuthToken()}`;
+}
 
 // ===== GROUP ID =====
 let groupId = localStorage.getItem('kaimono_groupid') || '';
@@ -876,10 +915,10 @@ async function createGroup() {
 
   const code = generateGroupCode();
   // グループ情報をFirebaseに保存（グループ存在確認用）
-  const res = await fetch(`${FIREBASE_URL}/groups/${code}/meta.json`, {
+  const res = await fetch(await dbUrl(`groups/${code}/meta`), {
     method:'PUT', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({ name, createdAt: Date.now() })
-  });
+  }).catch(() => ({ ok:false }));
   if (!res.ok) { showToast('作成に失敗しました。もう一度お試しください'); return; }
 
   groupId = code;
@@ -902,7 +941,7 @@ async function joinGroup() {
 }
 
 async function fetchGroupMeta(code) {
-  const res = await fetch(`${FIREBASE_URL}/groups/${code}/meta.json`);
+  const res = await fetch(await dbUrl(`groups/${code}/meta`)).catch(() => ({ ok:false }));
   return res.ok ? await res.json() : null;
 }
 
@@ -1052,25 +1091,27 @@ function setSyncStatus(status) {
 function groupPath(path) {
   return `groups/${groupId}/${path}`;
 }
+// 読み込み失敗時は例外にする（空のリストで上書き表示しないため）
 async function fbGet(path) {
-  const res = await fetch(`${FIREBASE_URL}/${groupPath(path)}.json`);
-  return res.ok ? await res.json() : null;
+  const res = await fetch(await dbUrl(groupPath(path)));
+  if (!res.ok) throw new Error(`読み込み失敗 ${res.status}`);
+  return await res.json();
 }
 async function fbSet(path, data) {
   setSyncStatus('syncing');
-  const res = await fetch(`${FIREBASE_URL}/${groupPath(path)}.json`, {
+  const res = await fetch(await dbUrl(groupPath(path)), {
     method:'PUT', headers:{'Content-Type':'application/json'},
     body: JSON.stringify(data)
-  });
+  }).catch(() => ({ ok:false }));
   setSyncStatus(res.ok ? 'synced' : 'offline');
   return res.ok;
 }
 async function fbPush(path, data) {
   setSyncStatus('syncing');
-  const res = await fetch(`${FIREBASE_URL}/${groupPath(path)}.json`, {
+  const res = await fetch(await dbUrl(groupPath(path)), {
     method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify(data)
-  });
+  }).catch(() => ({ ok:false }));
   setSyncStatus(res.ok ? 'synced' : 'offline');
   if (!res.ok) return null;
   const j = await res.json();
@@ -1078,7 +1119,7 @@ async function fbPush(path, data) {
 }
 async function fbDelete(path) {
   setSyncStatus('syncing');
-  const res = await fetch(`${FIREBASE_URL}/${groupPath(path)}.json`, { method:'DELETE' });
+  const res = await fetch(await dbUrl(groupPath(path)), { method:'DELETE' }).catch(() => ({ ok:false }));
   setSyncStatus(res.ok ? 'synced' : 'offline');
 }
 
@@ -1108,8 +1149,9 @@ let pollTimer = null;
 
 // ===== POLLING (5秒ごとに同期) =====
 function startSync() {
-  loadAll();
-  pollTimer = setInterval(loadAll, 5000);
+  const safeLoad = () => loadAll().catch(() => setSyncStatus('offline'));
+  safeLoad();
+  pollTimer = setInterval(safeLoad, 5000);
 }
 
 async function loadAll() {
@@ -2467,7 +2509,12 @@ async function openHistoryScreen() {
   const list = document.getElementById('history-list');
   list.innerHTML = '<p style="font-size:13px;color:var(--text-sub);text-align:center;padding:30px 0;">読み込み中...</p>';
 
-  const raw = await fbGet('history');
+  let raw;
+  try { raw = await fbGet('history'); }
+  catch (e) {
+    list.innerHTML = '<p style="font-size:13px;color:var(--text-sub);text-align:center;padding:30px 0;">読み込めませんでした。通信状態を確認してください</p>';
+    return;
+  }
   const entries = raw ? Object.values(raw) : [];
 
   if (!entries.length) {
